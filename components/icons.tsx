@@ -2,8 +2,10 @@ import {
   AlertTriangle,
   ArrowRight,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Command,
   CreditCard,
   File,
@@ -20,6 +22,7 @@ import {
   Settings,
   SunMedium,
   Trash,
+  Trash2,
   Twitter,
   User,
   X,
@@ -49,6 +52,9 @@ export const Icons = {
   moon: Moon,
   laptop: Laptop,
   pencil: Pencil,
+  chevronDown: ChevronDown,
+  chevronUp: ChevronUp,
+  trash2: Trash2,
   gitHub: ({ ...props }: LucideProps) => (
     <svg
       aria-hidden="true"

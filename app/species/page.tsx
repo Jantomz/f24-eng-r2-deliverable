@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import AddSpeciesDialog from "./add-species-dialog";
 import SpeciesCard from "./species-card";
 
+// Define the SpeciesList component
 export default async function SpeciesList() {
   // Create supabase server component client and obtain user session from stored cookie
   const supabase = createServerSupabaseClient();
@@ -20,8 +21,10 @@ export default async function SpeciesList() {
   // Obtain the ID of the currently signed-in user
   const sessionId = session.user.id;
 
+  // Fetch the list of species from the species table
   const { data: species } = await supabase.from("species").select("*").order("id", { ascending: false });
 
+  // Render the SpeciesList component
   return (
     <>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">

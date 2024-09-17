@@ -1,5 +1,6 @@
 "use client";
 
+// Import the necessary components from the Dialog module
 import { Icons } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,9 +27,6 @@ import { z } from "zod";
 import type { Database } from "@/lib/schema";
 
 type Species = Database["public"]["Tables"]["species"]["Row"];
-
-// We use zod (z) to define a schema for the "Add species" form.
-// zod handles validation of the input values with methods like .string(), .nullable(). It also processes the form inputs with .transform() before the inputs are sent to the database.
 
 // Define kingdom enum for use in Zod schema and displaying dropdown options in the form
 const kingdoms = z.enum(["Animalia", "Plantae", "Fungi", "Protista", "Archaea", "Bacteria"]);
@@ -92,9 +90,19 @@ export default function EditSpeciesDialog({ species, userId }: { species: Specie
     mode: "onChange",
   });
 
+  // Define the onSubmit function, which updates the species in the database
   const onSubmit = async (input: FormData) => {
     // The `input` prop contains data that has already been processed by zod. We can now use it in a supabase query
     const supabase = createBrowserSupabaseClient();
+    if (userId !== species.author) {
+      return toast({
+        title: "Unauthorized",
+        description: "You are not authorized to edit this species.",
+        variant: "destructive",
+      });
+    }
+
+    // Update the species in the database
     const { error } = await supabase
       .from("species")
       .update({
@@ -117,6 +125,7 @@ export default function EditSpeciesDialog({ species, userId }: { species: Specie
       });
     }
 
+    // If no errors occurred, update the form values with the new data
     const updatedValues: Partial<FormData> = {
       common_name: input.common_name,
       description: input.description,
@@ -144,12 +153,13 @@ export default function EditSpeciesDialog({ species, userId }: { species: Specie
     });
   };
 
+  // Render the EditSpeciesDialog component
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {userId == species.author && (
-          <Button variant="ghost" className="mt-3 flex justify-end">
-            <Icons.pencil className="h-5 w-5" />
+          <Button className="mt-3 bg-slate-50/50">
+            <Icons.pencil className="h-3 w-3" />
           </Button>
         )}
       </DialogTrigger>

@@ -12,16 +12,19 @@ can cause errors with matching props and state in child components if the list o
 */
 import type { Database } from "@/lib/schema";
 import Image from "next/image";
+import ConfirmDeleteDialog from "./confirm-delete-dialog";
 import DetailedViewDialog from "./detailed-view-dialog";
 import EditSpeciesDialog from "./edit-species-dialog";
 type Species = Database["public"]["Tables"]["species"]["Row"];
 
 export default function SpeciesCard({ species, userId }: { species: Species; userId: string }) {
   // changes: made the card flex, justifying between
+
   return (
     <div className="m-4 flex w-72 min-w-72 flex-col justify-between rounded border-2 p-3 shadow">
       <div className="flex flex-col justify-start">
         {species.image && (
+          // Display the species image if it exists
           <div className="relative h-40 w-full">
             <Image src={species.image} alt={species.scientific_name} fill style={{ objectFit: "cover" }} />
           </div>
@@ -29,13 +32,18 @@ export default function SpeciesCard({ species, userId }: { species: Species; use
 
         <div className="flex justify-between">
           <h3 className="mt-3 text-2xl font-semibold">{species.scientific_name} </h3>
-          <EditSpeciesDialog species={species} userId={userId} />
+          {userId === species.author && ( // Only show edit and delete buttons if the user is the author of the species
+            <div className="flex gap-5 ">
+              <EditSpeciesDialog species={species} userId={userId} />
+              <ConfirmDeleteDialog species={species} />
+            </div>
+          )}
         </div>
         <h4 className="text-lg font-light italic">{species.common_name}</h4>
         <p>{species.description ? species.description.slice(0, 150).trim() + "..." : ""}</p>
-        {/* Replace the button with the detailed view dialog. */}
       </div>
-      <DetailedViewDialog species={species} />
+      {/* Detailed view dialog, active on click */}
+      <DetailedViewDialog species={species} userId={userId} />
     </div>
   );
 }
