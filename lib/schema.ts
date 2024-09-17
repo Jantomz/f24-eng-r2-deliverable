@@ -35,7 +35,7 @@ export interface Database {
       species: {
         Row: {
           author: string;
-          comments: [{ author: string; comment: string }] | null;
+          comments: { author: string; comment: string }[] | null;
           common_name: string | null;
           description: string | null;
           id: number;
@@ -46,7 +46,7 @@ export interface Database {
         };
         Insert: {
           author: string;
-          comments?: [{ author: string; comment: string }] | null;
+          comments?: { author: string; comment: string }[] | null;
           common_name?: string | null;
           description?: string | null;
           id?: number;
@@ -57,7 +57,7 @@ export interface Database {
         };
         Update: {
           author?: string;
-          comments?: [{ author: string; comment: string }] | null;
+          comments?: { author: string; comment: string }[] | null;
           common_name?: string | null;
           description?: string | null;
           id?: number;
