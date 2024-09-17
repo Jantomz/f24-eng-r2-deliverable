@@ -30,12 +30,22 @@ export default function ConfirmDeleteDialog({ species }: { species: Species }) {
   const handleDelete = async () => {
     const supabase = createBrowserSupabaseClient();
     const { error } = await supabase.from("species").delete().eq("id", species.id);
+    const { error: commentsError } = await supabase.from("comments").delete().eq("species_id", species.id);
 
     // Catch and report errors from Supabase and exit the onDelete function with an early 'return' if an error occurred.
     if (error) {
       return toast({
         title: "Something went wrong.",
         description: error.message,
+        variant: "destructive",
+      });
+    }
+
+    // Catch and report errors from Supabase and exit the onDelete function with an early 'return' if an error occurred.
+    if (commentsError) {
+      return toast({
+        title: "Comments for the species were not deleted.",
+        description: commentsError.message,
         variant: "destructive",
       });
     }

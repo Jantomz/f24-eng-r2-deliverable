@@ -3,6 +3,41 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export interface Database {
   public: {
     Tables: {
+      comments: {
+        Row: {
+          author: string | null;
+          comment: string | null;
+          created_at: string;
+          display_name: string | null;
+          id: number;
+          species_id: number | null;
+        };
+        Insert: {
+          author?: string | null;
+          comment?: string | null;
+          created_at?: string;
+          display_name?: string | null;
+          id?: number;
+          species_id?: number | null;
+        };
+        Update: {
+          author?: string | null;
+          comment?: string | null;
+          created_at?: string;
+          display_name?: string | null;
+          id?: number;
+          species_id?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "comments_author_fkey";
+            columns: ["author"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           biography: string | null;
@@ -35,7 +70,6 @@ export interface Database {
       species: {
         Row: {
           author: string;
-          comments: { author: string; comment: string }[] | null;
           common_name: string | null;
           description: string | null;
           id: number;
@@ -46,7 +80,6 @@ export interface Database {
         };
         Insert: {
           author: string;
-          comments?: { author: string; comment: string }[] | null;
           common_name?: string | null;
           description?: string | null;
           id?: number;
@@ -57,7 +90,6 @@ export interface Database {
         };
         Update: {
           author?: string;
-          comments?: { author: string; comment: string }[] | null;
           common_name?: string | null;
           description?: string | null;
           id?: number;

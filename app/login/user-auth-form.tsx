@@ -8,6 +8,7 @@ import { toast } from "@/components/ui/use-toast";
 import { createBrowserSupabaseClient } from "@/lib/client-utils";
 import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
 import { useState, type BaseSyntheticEvent } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -17,6 +18,7 @@ import { z } from "zod";
 // Create Zod object schema with validations
 const userAuthSchema = z.object({
   email: z.string().email(),
+  password: z.string(),
 });
 
 // Use Zod to extract inferred type from schema
@@ -32,7 +34,9 @@ export default function UserAuthForm({ className, ...props }: React.HTMLAttribut
     resolver: zodResolver(userAuthSchema),
   });
 
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isSignUp, setIsSignUp] = useState<boolean>(false);
 
   // Obtain supabase client from context provider
   const supabaseClient = createBrowserSupabaseClient();
@@ -40,27 +44,52 @@ export default function UserAuthForm({ className, ...props }: React.HTMLAttribut
   const onSubmit = async (input: FormData) => {
     setIsLoading(true);
 
-    // Supabase magic link sign-in
-    const { error } = await supabaseClient.auth.signInWithOtp({
+    if (isSignUp) {
+      // Sign up new user
+      const { error } = await supabaseClient.auth.signUp({
+        email: input.email.toLowerCase(),
+        password: input.password,
+      });
+
+      if (error) {
+        setIsLoading(false);
+        return toast({
+          title: "Something went wrong during sign up.",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+
+      setIsLoading(false);
+      router.push("/species");
+      return toast({
+        title: "Successfully Signed Up",
+        description: "Welcome to T4SG Deliverable!",
+      });
+    }
+
+    const { error } = await supabaseClient.auth.signInWithPassword({
       email: input.email.toLowerCase(),
-      options: {
-        emailRedirectTo: `${location.origin}/auth/callback`,
-      },
+      password: input.password,
     });
 
-    setIsLoading(false);
-
     if (error) {
+      setIsLoading(false);
       return toast({
-        title: "Something went wrong.",
+        title: "Something went wrong trying to sign in.",
         description: error.message,
         variant: "destructive",
       });
     }
 
+    location.reload();
+    router.refresh();
+    router.push("/species");
+
+    setIsLoading(false);
     return toast({
-      title: "Check your email",
-      description: "We sent you a login link. Be sure to check your spam too.",
+      title: "Successfully Signed In",
+      description: "Welcome back to the T4SG Deliverable!",
     });
   };
 
@@ -83,13 +112,27 @@ export default function UserAuthForm({ className, ...props }: React.HTMLAttribut
               {...register("email")}
             />
             {errors?.email && <p className="px-1 text-xs text-red-600">{errors.email.message}</p>}
+            <Input
+              id="password"
+              placeholder="Password"
+              type="password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              disabled={isLoading}
+              {...register("password")}
+            />
           </div>
           <Button disabled={isLoading}>
             {isLoading && <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />}
-            Sign In with Email
+            {isSignUp ? "Sign Up" : "Sign In"}
           </Button>
         </div>
       </form>
+      <div className="text-center">
+        <Button variant="link" onClick={() => setIsSignUp(!isSignUp)}>
+          {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+        </Button>
+      </div>
     </div>
   );
 }

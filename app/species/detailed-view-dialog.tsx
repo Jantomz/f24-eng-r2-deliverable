@@ -1,7 +1,8 @@
 "use client";
 
-// Import the necessary components from the Dialog module
+import { Icons } from "@/components/icons";
 import { Button } from "@/components/ui/button";
+// Import the necessary components from the Dialog module
 import {
   Dialog,
   DialogContent,
@@ -14,9 +15,11 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { createBrowserSupabaseClient } from "@/lib/client-utils";
 import type { Database } from "@/lib/schema";
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useState } from "react";
 
 type Species = Database["public"]["Tables"]["species"]["Row"];
+type Comments = Database["public"]["Tables"]["comments"]["Row"];
 
 // Define the DetailedViewDialog component, which is the default component
 export default function DetailedViewDialog({ userId, species }: { userId: string; species: Species }) {
@@ -27,45 +30,69 @@ export default function DetailedViewDialog({ userId, species }: { userId: string
   const [userComment, setUserComment] = useState("");
   const [isAscending, setIsAscending] = useState<boolean>(true);
   const [userDisplayName, setUserDisplayName] = useState("");
+  const [comments, setComments] = useState<Comments[] | null>(null);
 
-  // Fetch the user display name from the profiles table immediately when rendered, and only once
-  useEffect(() => {
-    // Define the fetchUserDisplayName function, which fetches the user display name from the profiles table
-    const fetchUserDisplayName = async () => {
+  const fetchComments = useCallback(async () => {
+    if (open) {
       const supabase = createBrowserSupabaseClient();
 
-      // Fetch the user display name from the profiles table
-      const { data: user, error } = await supabase.from("profiles").select("display_name").eq("id", userId).single();
+      // Fetch the comments from the comments table
+      const { data: commentsList, error } = await supabase.from("comments").select("*").eq("species_id", species.id);
 
-      // Catch and report errors from Supabase and exit the fetchUserDisplayName function with an early 'return' if an error occurred.
+      // Catch and report errors from Supabase and exit the fetchComments function with an early 'return' if an error occurred.
       if (error) {
-        console.error("Error fetching user display name:", error);
+        console.error("Error fetching comments:", error);
         return;
       }
 
-      // Set the user display name in the state
-      setUserDisplayName(user.display_name);
-    };
+      // Set the comments in the state
+      setComments(commentsList);
+    }
+  }, [open, species.id]);
 
-    // Call the fetchUserDisplayName function
-    fetchUserDisplayName().catch((e) => {
-      console.error("Error fetching user display name:", e);
-    });
-  }, []);
+  // Fetch the user display name from the profiles table immediately when rendered, and only once
+  useEffect(() => {
+    if (open) {
+      // Define the fetchUserDisplayName function, which fetches the user display name from the profiles table
+      const fetchUserDisplayName = async () => {
+        const supabase = createBrowserSupabaseClient();
+
+        // Fetch the user display name from the profiles table
+        const { data: user, error } = await supabase.from("profiles").select("display_name").eq("id", userId).single();
+
+        // Catch and report errors from Supabase and exit the fetchUserDisplayName function with an early 'return' if an error occurred.
+        if (error) {
+          console.error("Error fetching user display name:", error);
+          return;
+        }
+
+        // Set the user display name in the state
+        setUserDisplayName(user.display_name);
+      };
+
+      // Call the fetchUserDisplayName function
+      fetchUserDisplayName().catch((e) => {
+        console.error("Error fetching user display name:", e);
+      });
+
+      // Call the fetchComments function
+      fetchComments().catch((e) => {
+        console.error("Error fetching comments:", e);
+      });
+    }
+  }, [open, fetchComments, userId]);
 
   // Define the handleDeleteComment function, which deletes a comment from the species table
-  const handleDeleteComment = async (commentIndex: number) => {
+  const handleDeleteComment = async (commentId: number) => {
     const supabase = createBrowserSupabaseClient();
-
-    const updatedComments = species.comments?.filter((_, i) => i !== commentIndex);
 
     // comments has an error, as the database forma and updatedComments format are not the same, will have to consult team members
     const { error } = await supabase
-      .from("species")
-      .update({
-        comments: updatedComments, // Update the comments field with the updated comments array
-      })
-      .eq("id", species.id);
+      .from("comments")
+      .delete()
+      .eq("species_id", species.id)
+      .eq("author", userId)
+      .eq("id", commentId);
 
     // Catch and report errors from Supabase and exit the handleDeleteComment function with an early 'return' if an error occurred.
     if (error) {
@@ -76,8 +103,10 @@ export default function DetailedViewDialog({ userId, species }: { userId: string
       });
     }
 
-    // Reload the page to display the updated comments
-    location.reload();
+    // to avoid reloading, we will call the fetchComments function to update the comments state
+    fetchComments().catch((e) => {
+      console.error("Error fetching comments:", e);
+    });
 
     // Display a toast notification to the user
     return toast({
@@ -90,48 +119,13 @@ export default function DetailedViewDialog({ userId, species }: { userId: string
   const handleCommentPost = async () => {
     const supabase = createBrowserSupabaseClient();
 
-    // Fetch the user display name from the profiles table
-    const { data: user, error: profileError } = await supabase
-      .from("profiles")
-      .select("display_name")
-      .eq("id", userId)
-      .single();
-
-    // Catch and report errors from Supabase and exit the handleCommentPost function with an early 'return' if an error occurred.
-    if (profileError) {
-      console.error("Error fetching user display name:", profileError);
-      return;
-    }
-
-    // Set the comment of the user
-    const newComment = {
-      author: user.display_name,
-      comment: userComment,
-    };
-
-    // Keep track of previous comments, storing in another variable for organization
-    const prevComments = species.comments;
-
-    // Create a new array to store all comments together
-    const totalComments = [];
-
-    // This was a very roundabout way to hold all the comments together, but it was the only solution that did not create errors
-    if (prevComments) {
-      for (const comment of prevComments) {
-        totalComments.push(comment);
-      }
-      totalComments.push(newComment);
-    } else {
-      totalComments.push(newComment);
-    }
-
     // Update the comments field in the species table with the new comment
-    const { error } = await supabase
-      .from("species")
-      .update({
-        comments: totalComments, // Same error with comments that needs to be consolidated with team members
-      })
-      .eq("id", species.id);
+    const { error } = await supabase.from("comments").insert({
+      author: userId,
+      display_name: userDisplayName,
+      comment: userComment,
+      species_id: species.id,
+    });
 
     // Catch and report errors from Supabase and exit the onSubmit function with an early 'return' if an error occurred.
     if (error) {
@@ -142,8 +136,13 @@ export default function DetailedViewDialog({ userId, species }: { userId: string
       });
     }
 
-    // Because Supabase errors were caught above, the remainder of the function will only execute upon a successful edit
-    location.reload();
+    // to avoid reloading, we will call the fetchComments function to update the comments state
+    fetchComments().catch((e) => {
+      console.error("Error fetching comments:", e);
+    });
+
+    // Clear the comment input box
+    setUserComment("");
 
     // Display a toast notification to the user
     return toast({
@@ -164,11 +163,13 @@ export default function DetailedViewDialog({ userId, species }: { userId: string
           <DialogDescription>{species.common_name}</DialogDescription>
         </DialogHeader>
         <div className="flex justify-center">
-          <img
+          <Image
             src={species.image ? species.image : "/default-image.png"} // Default image if no image is provided, in public
             alt={species.scientific_name}
             className="w-1/2"
-          />
+            width={300}
+            height={500}
+          ></Image>
         </div>
         <DialogDescription className="mt-3">
           Total Population: {species.total_population ? species.total_population : "Unknown"}
@@ -177,60 +178,89 @@ export default function DetailedViewDialog({ userId, species }: { userId: string
         <h3 className="mt-3 text-xl font-semibold">Description</h3>
         <p>{species.description}</p>
 
-        <DialogDescription className="mt-3">Comments:</DialogDescription>
-        <div className="flex justify-end">
+        <div className="flex justify-between">
+          <DialogDescription className="mt-3">Comments:</DialogDescription>
           <Button variant="outline" onClick={() => setIsAscending(!isAscending)}>
             {isAscending ? "Showing Newest First" : "Showing Oldest First"}
           </Button>
         </div>
 
-        {isAscending &&
-          species.comments
-            ?.slice()
-            .reverse()
+        {!isAscending &&
+          comments
+            ?.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
             .map((comment, index) => (
-              <div key={index} className="mt-2 flex justify-between rounded border-2 p-2">
-                <div>
-                  <p className="font-semibold ">{comment?.author}</p>
-                  <p>{comment?.comment}</p>
+              <div key={index} className="mt-2 rounded border-2 p-2">
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-row justify-between">
+                    <p className="font-semibold ">{comment?.display_name}</p>
+                    <p className="font-normal">
+                      {new Date(comment?.created_at).toLocaleString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex justify-between">
+                    <p>{comment?.comment}</p>
+                    {comment?.display_name == userDisplayName && (
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          if (comments) {
+                            handleDeleteComment(comment.id).catch((e) => {
+                              console.error("Error deleting comment:", e);
+                            });
+                          }
+                        }}
+                      >
+                        <Icons.trash className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                {comment?.author == userDisplayName && (
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      if (species.comments) {
-                        handleDeleteComment(species.comments.length - index - 1).catch((e) => {
-                          console.error("Error deleting comment:", e);
-                        });
-                      }
-                    }}
-                  >
-                    Delete
-                  </Button>
-                )}
               </div>
             ))}
-        {!isAscending &&
-          species.comments?.map((comment, index) => (
-            <div key={index} className="mt-2 flex justify-between rounded border-2 p-2">
-              <div>
-                <p className="font-semibold ">{comment?.author}</p>
-                <p>{comment?.comment}</p>
+        {isAscending &&
+          comments
+            ?.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .map((comment, index) => (
+              <div key={index} className="mt-2 rounded border-2 p-2">
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-row justify-between">
+                    <p className="font-semibold ">{comment?.display_name}</p>
+                    <p className="font-normal">
+                      {new Date(comment?.created_at).toLocaleString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex justify-between">
+                    <p>{comment?.comment}</p>
+                    {comment?.display_name == userDisplayName && (
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          if (comments) {
+                            handleDeleteComment(comment.id).catch((e) => {
+                              console.error("Error deleting comment:", e);
+                            });
+                          }
+                        }}
+                      >
+                        <Icons.trash className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </div>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  if (species.comments) {
-                    handleDeleteComment(index).catch((e) => {
-                      console.error("Error deleting comment:", e);
-                    });
-                  }
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          ))}
+            ))}
 
         <Input placeholder="Add a comment..." className="mt-3" onChange={(e) => setUserComment(e.target.value)} />
         <Button
